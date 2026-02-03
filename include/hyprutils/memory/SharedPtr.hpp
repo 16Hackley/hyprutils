@@ -67,7 +67,7 @@ namespace Hyprutils {
             }
 
             ~CSharedPointer() {
-                decrement();
+                decrement(impl_);
             }
 
             template <typename U>
@@ -75,7 +75,7 @@ namespace Hyprutils {
                 if (impl_ == rhs.impl_)
                     return *this;
 
-                decrement();
+                decrement(impl_);
                 impl_  = rhs.impl_;
                 m_data = rhs.m_data;
                 increment();
@@ -86,7 +86,7 @@ namespace Hyprutils {
                 if (impl_ == rhs.impl_)
                     return *this;
 
-                decrement();
+                decrement(impl_);
                 impl_  = rhs.impl_;
                 m_data = rhs.m_data;
                 increment();
@@ -133,9 +133,10 @@ namespace Hyprutils {
             }
 
             void reset() {
-                decrement();
-                impl_  = nullptr;
-                m_data = nullptr;
+                auto ptr = impl_;
+                impl_    = nullptr;
+                m_data   = nullptr;
+                decrement(ptr);
             }
 
             T* get() const {
@@ -161,15 +162,15 @@ namespace Hyprutils {
                 may delete the stored object if ref == 0
                 may delete and reset impl_ if ref == 0 and weak == 0
             */
-            void decrement() {
-                if (!impl_)
+            void decrement(Impl_::impl_base* base) {
+                if (!base)
                     return;
 
-                impl_->dec();
+                base->dec();
 
                 // if ref == 0, we can destroy impl
-                if (impl_->ref() == 0)
-                    destroyImpl();
+                if (base->ref() == 0)
+                    destroyImpl(base);
             }
             /* no-op if there is no impl_ */
             void increment() {
@@ -181,15 +182,13 @@ namespace Hyprutils {
 
             /* destroy the pointed-to object
                if able, will also destroy impl */
-            void destroyImpl() {
-                // destroy the impl contents
-                impl_->destroy();
+            void destroyImpl(Impl_::impl_base* base) {
+                // this call can destroy this, so we need to not use thisptr anymore
+                base->destroy();
 
-                // check for weak refs, if zero, we can also delete impl_
-                if (impl_->wref() == 0) {
-                    delete impl_;
-                    impl_ = nullptr;
-                }
+                // check for weak refs, if zero, we can also delete base
+                if (base->wref() == 0)
+                    delete base;
             }
         };
 

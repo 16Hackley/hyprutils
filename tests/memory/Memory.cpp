@@ -236,6 +236,27 @@ static void testHierarchy() {
     }
 }
 
+class CSelfDestruct {
+  public:
+    SP<CSelfDestruct> self;
+
+    //
+    void youShouldKysNOW() {
+        self.reset();
+    }
+};
+
+static void testSelfDestruct() {
+    auto x                 = makeShared<CSelfDestruct>();
+    x->self                = x;
+    WP<CSelfDestruct> weak = x;
+    x.reset();
+
+    // this has no EXPECT, because all we check is if there isn't a UAF here.
+    // if there is, asan will abort us
+    weak->youShouldKysNOW();
+}
+
 TEST(Memory, memory) {
     SP<int> intPtr    = makeShared<int>(10);
     SP<int> intPtr2   = makeShared<int>(-1337);
@@ -291,4 +312,6 @@ TEST(Memory, memory) {
     testAtomicImpl();
 
     testHierarchy();
+
+    testSelfDestruct();
 }

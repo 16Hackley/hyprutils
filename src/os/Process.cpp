@@ -66,7 +66,7 @@ bool Hyprutils::OS::CProcess::runSync() {
         std::vector<char*> argsC;
         argsC.emplace_back(strdup(m_impl->binary.c_str()));
         for (auto& arg : m_impl->args) {
-            // TODO: does this leak? Can we just pipe c_str() as the strings won't be realloc'd?
+            // Arguments are duplicated for execvp; if execvp fails, they must be freed.
             argsC.emplace_back(strdup(arg.c_str()));
         }
 
@@ -78,7 +78,12 @@ bool Hyprutils::OS::CProcess::runSync() {
         }
 
         execvp(m_impl->binary.c_str(), argsC.data());
-        exit(1);
+        for (auto ptr : argsC) {
+            if (ptr)
+                free(ptr);
+        }
+        _exit(1);
+
     } else {
         // parent
         close(outPipe[1]);
